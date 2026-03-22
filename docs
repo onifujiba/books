@@ -167,13 +167,11 @@
     .toc-item.current { border-left-color: var(--accent); color: var(--accent); font-weight: 600; background: var(--bg); }
 
     .toc-ch-label {
-      font-size: 0.78rem;
-      color: var(--ink2);
+      color: var(--ink);
       display: block;
-      margin-bottom: 0.1rem;
       font-family: 'Playfair Display', serif;
     }
-    .toc-ch-title { display: block; }
+    .toc-ch-title { display: block; font-size: 0.85em; color: var(--ink2); margin-top: 0.1rem; }
 
     .toc-empty {
       padding: 2rem 1.25rem;
