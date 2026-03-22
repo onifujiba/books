@@ -88,6 +88,8 @@
     .icon-btn:hover { color: var(--accent); background: var(--border); }
     .icon-btn.active { color: var(--accent); background: var(--border); }
 
+    .icon-btn.starred { color: #e8a020; }
+
     /* ── TOC DRAWER ── */
     #toc-overlay {
       display: none;
@@ -167,13 +169,11 @@
     .toc-item.current { border-left-color: var(--accent); color: var(--accent); font-weight: 600; background: var(--bg); }
 
     .toc-ch-label {
-      font-size: 0.78rem;
-      color: var(--ink2);
+      color: var(--ink);
       display: block;
-      margin-bottom: 0.1rem;
       font-family: 'Playfair Display', serif;
     }
-    .toc-ch-title { display: block; }
+    .toc-ch-title { display: block; font-size: 0.85em; color: var(--ink2); margin-top: 0.1rem; }
 
     .toc-empty {
       padding: 2rem 1.25rem;
@@ -207,6 +207,31 @@
       font-size: 0.82rem;
     }
     #resume-banner button:hover { background: rgba(255,255,255,0.35); }
+
+    .section-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      margin: 1.5rem 0 0.6rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    .star-btn-card {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 4px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .star-btn-card:hover { transform: scale(1.2); }
 
     /* ── LIBRARY VIEW ── */
     #library {
@@ -425,6 +450,7 @@
   </div>
   <div class="header-controls">
     <button class="icon-btn" id="toc-btn" title="Table of contents" onclick="toggleToc()" style="display:none">目次</button>
+    <button class="icon-btn" id="star-btn" title="Star this book" onclick="toggleStar()" style="display:none">☆</button>
     <button class="icon-btn" id="dl-btn" title="Download file" onclick="downloadCurrent()" style="display:none">↓</button>
     <div style="position:relative">
       <button class="icon-btn" id="font-btn" title="Font size" onclick="toggleFontPanel()" style="display:none">Aa</button>
@@ -499,6 +525,31 @@
   if (savedSize) {
     setFontSize(savedSize);
     document.getElementById('font-slider').value = savedSize;
+  }
+
+  // ── Stars ──────────────────────────────────────────────
+  function getStarred() {
+    try { return JSON.parse(localStorage.getItem('starred') || '[]'); } catch(e) { return []; }
+  }
+  function isStarred(name) { return getStarred().includes(name); }
+  function setStarred(name, val) {
+    let starred = getStarred();
+    if (val) { if (!starred.includes(name)) starred.push(name); }
+    else { starred = starred.filter(n => n !== name); }
+    localStorage.setItem('starred', JSON.stringify(starred));
+  }
+  function toggleStar() {
+    if (!currentFileKey) return;
+    const nowStarred = !isStarred(currentFileKey);
+    setStarred(currentFileKey, nowStarred);
+    updateStarBtn();
+  }
+  function updateStarBtn() {
+    const btn = document.getElementById('star-btn');
+    const starred = currentFileKey && isStarred(currentFileKey);
+    btn.textContent = starred ? '★' : '☆';
+    btn.title = starred ? 'Unstar this book' : 'Star this book';
+    btn.classList.toggle('starred', starred);
   }
 
   // ── Download current file ──────────────────────────────
@@ -628,6 +679,24 @@
   // Chapter regex: 第1章, 第２章, 第十章, etc. — optionally followed by a title on the same line
   const CHAPTER_RE = /^(第[0-9０-９一二三四五六七八九十百千万]+章)\s*(.*)/;
 
+  // ── Encoding detection ─────────────────────────────────
+  // Try UTF-8 first; if it produces replacement chars (U+FFFD), fall back to GBK
+  function decodeBuffer(buffer) {
+    const utf8 = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+    // If no replacement characters, it's valid UTF-8
+    if (!utf8.includes('\uFFFD')) return utf8;
+    // Try GBK (covers GB2312, GB18030)
+    try {
+      return new TextDecoder('gbk', { fatal: true }).decode(buffer);
+    } catch(e) {}
+    // Try Big5 for Traditional Chinese
+    try {
+      return new TextDecoder('big5', { fatal: true }).decode(buffer);
+    } catch(e) {}
+    // Last resort: return UTF-8 result even with replacement chars
+    return utf8;
+  }
+
   // ── Parse text → HTML + chapter list ──────────────────
   function parseText(rawText) {
     const detected = [];
@@ -670,31 +739,54 @@
         return;
       }
 
-      lib.innerHTML = `
+      const starred = getStarred();
+      const starredFiles = files.filter(f => starred.includes(f.name));
+      const otherFiles   = files.filter(f => !starred.includes(f.name));
+
+      function cardHtml(f, i) {
+        const scroll = parseInt(localStorage.getItem('scroll_'+f.name)||'0');
+        const inProgress = scroll > 200;
+        const fStarred = starred.includes(f.name);
+        return `
+          <div class="book-card fade-up" onclick="openBook(${i})">
+            <div class="book-icon">${inProgress ? '🔖' : '📖'}</div>
+            <div class="book-info">
+              <div class="book-name">${prettify(f.name)}</div>
+              <div class="book-meta">${f.name}</div>
+              ${inProgress ? `<div class="book-progress">Reading in progress…</div>` : ''}
+            </div>
+            <button class="star-btn-card" title="${fStarred?'Unstar':'Star'}"
+              onclick="event.stopPropagation(); toggleStarCard('${f.name}')">
+              ${fStarred ? '★' : '☆'}
+            </button>
+            <div class="book-arrow">›</div>
+          </div>`;
+      }
+
+      let html = `
         <div class="library-heading fade-up">Your Library</div>
         <div class="library-sub fade-up">${files.length} stor${files.length===1?'y':'ies'} · tap to read</div>
-        <div class="book-list">
-          ${files.map((f,i) => {
-            const scroll = parseInt(localStorage.getItem('scroll_'+f.name)||'0');
-            const inProgress = scroll > 200;
-            return `
-              <div class="book-card fade-up" onclick="openBook(${i})">
-                <div class="book-icon">${inProgress ? '🔖' : '📖'}</div>
-                <div class="book-info">
-                  <div class="book-name">${prettify(f.name)}</div>
-                  <div class="book-meta">${f.name}</div>
-                  ${inProgress ? `<div class="book-progress">Reading in progress…</div>` : ''}
-                </div>
-                <div class="book-arrow">›</div>
-              </div>`;
-          }).join('')}
-        </div>`;
+        <div class="book-list">`;
 
+      if (starredFiles.length) {
+        html += `<div class="section-label">⭐ Favourites</div>`;
+        html += starredFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+        html += `<div class="section-label">All books</div>`;
+      }
+      html += otherFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+      html += `</div>`;
+
+      lib.innerHTML = html;
       checkResume(files);
     } catch(err) {
       document.getElementById('library').innerHTML =
         `<div class="status"><div class="status-icon">⚠️</div>Failed to load library.<br><small>${err.message}</small></div>`;
     }
+  }
+
+  function toggleStarCard(name) {
+    setStarred(name, !isStarred(name));
+    loadLibrary();
   }
 
   // ── Open book ──────────────────────────────────────────
@@ -713,6 +805,8 @@
     document.getElementById('font-btn').style.display = 'flex';
     document.getElementById('toc-btn').style.display = 'flex';
     document.getElementById('dl-btn').style.display = 'flex';
+    document.getElementById('star-btn').style.display = 'flex';
+    updateStarBtn();
     document.title = prettify(file.name) + ' · Books';
 
     readerEl.innerHTML = `
@@ -723,7 +817,8 @@
 
     try {
       const res = await fetch(file.download_url);
-      const text = await res.text();
+      const buffer = await res.arrayBuffer();
+      const text = decodeBuffer(buffer);
       const { html, chapters: detected } = parseText(text);
       chapters = detected;
 
@@ -761,6 +856,7 @@
     document.getElementById('font-btn').style.display = 'none';
     document.getElementById('toc-btn').style.display = 'none';
     document.getElementById('dl-btn').style.display = 'none';
+    document.getElementById('star-btn').style.display = 'none';
     document.title = 'Books';
     window.scrollTo(0, 0);
     loadLibrary(); // refresh progress badges
