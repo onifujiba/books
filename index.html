@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Books</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --bg2: #ede7d9;
+      --ink: #1c1612;
+      --ink2: #4a3f35;
+      --accent: #8b3a2a;
+      --accent2: #c45e3e;
+      --border: #d4c9b5;
+      --shadow: rgba(28,22,18,0.12);
+      --font-size: 18px;
+    }
+    .dark {
+      --bg: #12100e;
+      --bg2: #1c1814;
+      --ink: #e8e0d0;
+      --ink2: #a89880;
+      --accent: #d4724a;
+      --accent2: #e8956a;
+      --border: #2e2820;
+      --shadow: rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.25rem;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 12px var(--shadow);
+    }
+
+    .header-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink2);
+      padding: 6px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s, background 0.2s;
+      font-size: 1.1rem;
+    }
+    .icon-btn:hover { color: var(--accent); background: var(--border); }
+
+    /* ── LIBRARY VIEW ── */
+    #library {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    .library-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 0.4rem;
+      line-height: 1.2;
+    }
+    .library-sub {
+      color: var(--ink2);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+      font-style: italic;
+    }
+
+    .book-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .book-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      text-decoration: none;
+    }
+    .book-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--shadow);
+      border-color: var(--accent2);
+    }
+    .book-card:active { transform: translateY(0); }
+
+    .book-icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+      opacity: 0.8;
+    }
+
+    .book-info { flex: 1; min-width: 0; }
+
+    .book-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .book-meta {
+      font-size: 0.8rem;
+      color: var(--ink2);
+      margin-top: 0.2rem;
+    }
+
+    .book-arrow {
+      color: var(--accent);
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    /* ── READER VIEW ── */
+    #reader {
+      display: none;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 5rem;
+    }
+
+    .reader-chapter {
+      font-family: 'Playfair Display', serif;
+      font-size: 0.85rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .reader-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 1.25rem;
+    }
+
+    .reader-body {
+      font-size: var(--font-size);
+      line-height: 1.85;
+      color: var(--ink);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* paragraph-like spacing for txt */
+    .reader-body p {
+      margin-bottom: 1.3em;
+    }
+
+    /* ── FONT SIZE PANEL ── */
+    .font-panel {
+      display: none;
+      position: absolute;
+      right: 0.75rem;
+      top: 58px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      box-shadow: 0 8px 24px var(--shadow);
+      z-index: 200;
+      min-width: 180px;
+    }
+    .font-panel.open { display: block; }
+    .font-panel label {
+      font-size: 0.8rem;
+      color: var(--ink2);
+      display: block;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .font-slider {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .font-preview {
+      font-size: 0.85rem;
+      color: var(--ink2);
+      text-align: center;
+      margin-top: 0.3rem;
+    }
+
+    /* ── LOADING / ERROR ── */
+    .status {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--ink2);
+      font-style: italic;
+    }
+    .status-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    /* ── PROGRESS BAR ── */
+    #progress-bar {
+      position: fixed;
+      top: 54px;
+      left: 0;
+      height: 2px;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.1s;
+      z-index: 99;
+      display: none;
+    }
+
+    /* ── SCROLL TO TOP ── */
+    #scroll-top {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.25rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--shadow);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 150;
+    }
+    #scroll-top:hover { transform: translateY(-2px); }
+
+    @media (max-width: 480px) {
+      #library, #reader { padding-left: 1rem; padding-right: 1rem; }
+      .reader-body { font-size: calc(var(--font-size) * 0.95); }
+    }
+
+    /* Fade-in animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s ease both; }
+    .book-card:nth-child(1)  { animation-delay: 0.05s; }
+    .book-card:nth-child(2)  { animation-delay: 0.10s; }
+    .book-card:nth-child(3)  { animation-delay: 0.15s; }
+    .book-card:nth-child(4)  { animation-delay: 0.20s; }
+    .book-card:nth-child(5)  { animation-delay: 0.25s; }
+    .book-card:nth-child(6)  { animation-delay: 0.30s; }
+    .book-card:nth-child(7)  { animation-delay: 0.35s; }
+    .book-card:nth-child(8)  { animation-delay: 0.40s; }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<header>
+  <div class="header-title" onclick="goHome()">📚 Books</div>
+  <div class="header-controls">
+    <div style="position:relative">
+      <button class="icon-btn" id="font-btn" title="Font size" onclick="toggleFontPanel()" style="display:none">Aa</button>
+      <div class="font-panel" id="font-panel">
+        <label>Reading size</label>
+        <input type="range" class="font-slider" id="font-slider" min="14" max="26" value="18"
+               oninput="setFontSize(this.value)">
+        <div class="font-preview" id="font-preview">18px</div>
+      </div>
+    </div>
+    <button class="icon-btn" id="theme-btn" title="Toggle theme" onclick="toggleTheme()">🌙</button>
+  </div>
+</header>
+
+<main id="library">
+  <div class="status">
+    <div class="status-icon">⏳</div>
+    Loading your library…
+  </div>
+</main>
+
+<div id="reader"></div>
+
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+  const OWNER = 'onifujiba';
+  const REPO  = 'books';
+  const API   = `https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
+
+  let files = [];
+  let dark = false;
+
+  // ── Theme ──────────────────────────────────────────────
+  function toggleTheme() {
+    dark = !dark;
+    document.body.classList.toggle('dark', dark);
+    document.getElementById('theme-btn').textContent = dark ? '☀️' : '🌙';
+    localStorage.setItem('dark', dark);
+  }
+
+  if (localStorage.getItem('dark') === 'true') toggleTheme();
+
+  // ── Font size ──────────────────────────────────────────
+  function setFontSize(v) {
+    document.documentElement.style.setProperty('--font-size', v + 'px');
+    document.getElementById('font-preview').textContent = v + 'px';
+    localStorage.setItem('fontSize', v);
+  }
+
+  const savedSize = localStorage.getItem('fontSize');
+  if (savedSize) {
+    setFontSize(savedSize);
+    document.getElementById('font-slider').value = savedSize;
+  }
+
+  function toggleFontPanel() {
+    document.getElementById('font-panel').classList.toggle('open');
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#font-btn') && !e.target.closest('#font-panel')) {
+      document.getElementById('font-panel').classList.remove('open');
+    }
+  });
+
+  // ── Progress bar ───────────────────────────────────────
+  const bar = document.getElementById('progress-bar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    bar.style.width = pct + '%';
+
+    const scrollBtn = document.getElementById('scroll-top');
+    scrollBtn.style.display = h.scrollTop > 300 ? 'flex' : 'none';
+  });
+
+  // ── Prettify filename ──────────────────────────────────
+  function prettify(name) {
+    return name
+      .replace(/\.txt$/i, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // ── Load library ───────────────────────────────────────
+  async function loadLibrary() {
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error('Could not reach GitHub API');
+      const data = await res.json();
+      files = data.filter(f => f.name.toLowerCase().endsWith('.txt'));
+
+      const lib = document.getElementById('library');
+      if (files.length === 0) {
+        lib.innerHTML = `<div class="status"><div class="status-icon">📭</div>No .txt files found in the repository.</div>`;
+        return;
+      }
+
+      lib.innerHTML = `
+        <div class="library-heading fade-up">Your Library</div>
+        <div class="library-sub fade-up">${files.length} stor${files.length === 1 ? 'y' : 'ies'} · tap to read</div>
+        <div class="book-list">
+          ${files.map((f, i) => `
+            <div class="book-card fade-up" onclick="openBook(${i})">
+              <div class="book-icon">📖</div>
+              <div class="book-info">
+                <div class="book-name">${prettify(f.name)}</div>
+                <div class="book-meta">${f.name}</div>
+              </div>
+              <div class="book-arrow">›</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } catch (err) {
+      document.getElementById('library').innerHTML = `
+        <div class="status">
+          <div class="status-icon">⚠️</div>
+          Failed to load library.<br><small>${err.message}</small>
+        </div>`;
+    }
+  }
+
+  // ── Open a book ────────────────────────────────────────
+  async function openBook(index) {
+    const file = files[index];
+    const reader = document.getElementById('reader');
+    const lib    = document.getElementById('library');
+
+    lib.style.display = 'none';
+    reader.style.display = 'block';
+    bar.style.display = 'block';
+    document.getElementById('font-btn').style.display = 'flex';
+    document.title = prettify(file.name) + ' · Books';
+
+    reader.innerHTML = `
+      <div class="reader-chapter">Story</div>
+      <div class="reader-title">${prettify(file.name)}</div>
+      <div class="status"><div class="status-icon">⏳</div>Loading…</div>
+    `;
+    window.scrollTo(0, 0);
+
+    try {
+      const res  = await fetch(file.download_url);
+      const text = await res.text();
+
+      // Split into paragraphs for better rendering
+      const paragraphs = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+      const html = paragraphs.map(p => `<p>${escHtml(p)}</p>`).join('');
+
+      reader.innerHTML = `
+        <div class="reader-chapter fade-up">Story</div>
+        <div class="reader-title fade-up">${prettify(file.name)}</div>
+        <div class="reader-body fade-up">${html}</div>
+      `;
+    } catch (err) {
+      reader.innerHTML += `<div class="status">⚠️ Could not load file.<br><small>${err.message}</small></div>`;
+    }
+  }
+
+  function escHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Go home ────────────────────────────────────────────
+  function goHome() {
+    document.getElementById('reader').style.display = 'none';
+    document.getElementById('library').style.display = 'block';
+    bar.style.display = 'none';
+    bar.style.width = '0%';
+    document.getElementById('font-btn').style.display = 'none';
+    document.getElementById('font-panel').classList.remove('open');
+    document.title = 'Books';
+    window.scrollTo(0, 0);
+  }
+
+  // ── Handle browser back ────────────────────────────────
+  window.addEventListener('popstate', goHome);
+
+  loadLibrary();
+</script>
+</body>
+</html>
