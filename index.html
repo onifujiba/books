@@ -415,6 +415,60 @@
     }
     #scroll-top:hover { transform: translateY(-2px); }
 
+    /* ── SEARCH BAR ── */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--ink2);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+    #search-input {
+      width: 100%;
+      padding: 0.65rem 0.9rem 0.65rem 2.5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg2);
+      color: var(--ink);
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #search-input::placeholder { color: var(--ink2); opacity: 0.7; }
+    #search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(139,58,42,0.12);
+    }
+    .search-clear {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink2);
+      font-size: 1rem;
+      padding: 2px 4px;
+      display: none;
+      line-height: 1;
+    }
+    .search-clear:hover { color: var(--accent); }
+    .search-empty {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--ink2);
+      font-style: italic;
+      font-size: 0.95rem;
+    }
+
     @media (max-width: 480px) {
       #library, #reader { padding-left: 1rem; padding-right: 1rem; }
     }
@@ -725,6 +779,58 @@
     return { html, chapters: detected };
   }
 
+  // ── Search / filter ────────────────────────────────────
+  function filterBooks(query) {
+    const q = query.trim().toLowerCase();
+    const clearBtn = document.getElementById('search-clear');
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    const list = document.getElementById('book-list');
+    if (!list) return;
+
+    const cards = list.querySelectorAll('.book-card');
+    const labels = list.querySelectorAll('.section-label');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const name = (card.querySelector('.book-name')?.textContent || '').toLowerCase();
+      const meta = (card.querySelector('.book-meta')?.textContent || '').toLowerCase();
+      const match = !q || name.includes(q) || meta.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    });
+
+    // Hide section labels if no visible cards follow them
+    labels.forEach(label => {
+      let next = label.nextElementSibling;
+      let hasVisible = false;
+      while (next && !next.classList.contains('section-label')) {
+        if (next.classList.contains('book-card') && next.style.display !== 'none') hasVisible = true;
+        next = next.nextElementSibling;
+      }
+      label.style.display = hasVisible ? '' : 'none';
+    });
+
+    // Show empty state
+    let emptyMsg = list.querySelector('.search-empty');
+    if (visibleCount === 0 && q) {
+      if (!emptyMsg) {
+        emptyMsg = document.createElement('div');
+        emptyMsg.className = 'search-empty';
+        list.appendChild(emptyMsg);
+      }
+      emptyMsg.textContent = `No titles matching "${query}"`;
+      emptyMsg.style.display = '';
+    } else if (emptyMsg) {
+      emptyMsg.style.display = 'none';
+    }
+  }
+
+  function clearSearch() {
+    const input = document.getElementById('search-input');
+    if (input) { input.value = ''; filterBooks(''); input.focus(); }
+  }
+
   // ── Library ────────────────────────────────────────────
   async function loadLibrary() {
     try {
@@ -766,7 +872,12 @@
       let html = `
         <div class="library-heading fade-up">Your Library</div>
         <div class="library-sub fade-up">${files.length} stor${files.length===1?'y':'ies'} · tap to read</div>
-        <div class="book-list">`;
+        <div class="search-wrap fade-up">
+          <span class="search-icon">🔍</span>
+          <input type="search" id="search-input" placeholder="Search titles…" oninput="filterBooks(this.value)" autocomplete="off">
+          <button class="search-clear" id="search-clear" onclick="clearSearch()" title="Clear">✕</button>
+        </div>
+        <div class="book-list" id="book-list">`;
 
       if (starredFiles.length) {
         html += `<div class="section-label">⭐ Favourites</div>`;
