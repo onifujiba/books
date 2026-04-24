@@ -731,7 +731,7 @@
   }
 
   // Chapter regex: 第1章, 第２章, 第十章, etc. — optionally followed by a title on the same line
-  const CHAPTER_RE = /^(第[0-9０-９一二三四五六七八九十百千万]+章)\s*(.*)/;
+  const CHAPTER_RE = /(第[0-9０-９一二三四五六七八九十百千万]+章)\s*(.*)/;
 
   // ── Encoding detection ─────────────────────────────────
   // Try UTF-8 first; if it produces replacement chars (U+FFFD), fall back to GBK
