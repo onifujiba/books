@@ -832,12 +832,40 @@
   }
 
   // ── Library ────────────────────────────────────────────
+
+  // Fetch all .txt files from root and subdirectories.
+  // Root files are flagged as recommended=true; subdir files are not.
+  async function fetchAllFiles() {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error('Could not reach GitHub API');
+    const data = await res.json();
+
+    const rootTxt = data
+      .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.txt'))
+      .map(f => ({ ...f, recommended: true }));
+
+    const dirs = data.filter(f => f.type === 'dir');
+
+    // Fetch each subdirectory in parallel
+    const subdirResults = await Promise.all(dirs.map(async dir => {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(dir.path)}`);
+        if (!r.ok) return [];
+        const items = await r.json();
+        return items
+          .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.txt'))
+          .map(f => ({ ...f, recommended: false }));
+      } catch(e) { return []; }
+    }));
+
+    const subdirTxt = subdirResults.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    return [...rootTxt, ...subdirTxt];
+  }
+
   async function loadLibrary() {
     try {
-      const res = await fetch(API);
-      if (!res.ok) throw new Error('Could not reach GitHub API');
-      const data = await res.json();
-      files = data.filter(f => f.name.toLowerCase().endsWith('.txt'));
+      files = await fetchAllFiles();
 
       const lib = document.getElementById('library');
       if (!files.length) {
@@ -846,19 +874,23 @@
       }
 
       const starred = getStarred();
-      const starredFiles = files.filter(f => starred.includes(f.name));
-      const otherFiles   = files.filter(f => !starred.includes(f.name));
+      const starredFiles  = files.filter(f => starred.includes(f.name));
+      const recommendedFiles = files.filter(f => f.recommended && !starred.includes(f.name));
+      const otherFiles    = files.filter(f => !f.recommended && !starred.includes(f.name));
 
       function cardHtml(f, i) {
         const scroll = parseInt(localStorage.getItem('scroll_'+f.name)||'0');
         const inProgress = scroll > 200;
         const fStarred = starred.includes(f.name);
+        const badge = f.recommended && !fStarred
+          ? `<span style="font-size:0.7rem;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;margin-left:0.4rem;vertical-align:middle;font-family:'Lora',serif;font-style:normal;letter-spacing:0.04em;">Pick</span>`
+          : '';
         return `
           <div class="book-card fade-up" onclick="openBook(${i})">
             <div class="book-icon">${inProgress ? '🔖' : '📖'}</div>
             <div class="book-info">
-              <div class="book-name">${prettify(f.name)}</div>
-              <div class="book-meta">${f.name}</div>
+              <div class="book-name">${prettify(f.name)}${badge}</div>
+              <div class="book-meta">${f.path || f.name}</div>
               ${inProgress ? `<div class="book-progress">Reading in progress…</div>` : ''}
             </div>
             <button class="star-btn-card" title="${fStarred?'Unstar':'Star'}"
@@ -869,9 +901,10 @@
           </div>`;
       }
 
+      const total = files.length;
       let html = `
         <div class="library-heading fade-up">Your Library</div>
-        <div class="library-sub fade-up">${files.length} stor${files.length===1?'y':'ies'} · tap to read</div>
+        <div class="library-sub fade-up">${total} stor${total===1?'y':'ies'} · tap to read</div>
         <div class="search-wrap fade-up">
           <span class="search-icon">🔍</span>
           <input type="search" id="search-input" placeholder="Search titles…" oninput="filterBooks(this.value)" autocomplete="off">
@@ -882,9 +915,18 @@
       if (starredFiles.length) {
         html += `<div class="section-label">⭐ Favourites</div>`;
         html += starredFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
-        html += `<div class="section-label">All books</div>`;
       }
-      html += otherFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+
+      if (recommendedFiles.length) {
+        html += `<div class="section-label">✦ Recommended</div>`;
+        html += recommendedFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+      }
+
+      if (otherFiles.length) {
+        html += `<div class="section-label">All books</div>`;
+        html += otherFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+      }
+
       html += `</div>`;
 
       lib.innerHTML = html;
