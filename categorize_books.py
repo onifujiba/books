@@ -126,7 +126,7 @@ def main():
     parser = argparse.ArgumentParser(description="Categorize Chinese .txt books into folders.")
     parser.add_argument("--dir",    default=".", help="Directory containing .txt files (default: current dir)")
     parser.add_argument("--out",    default=None, help="Output base directory (default: same as --dir)")
-    parser.add_argument("--sample", type=int, default=5000, help="Chars to sample per file (default: 5000)")
+    parser.add_argument("--sample", type=int, default=100000, help="Chars to sample per file (default: 5000)")
     parser.add_argument("--copy",   action="store_true", help="Copy files instead of moving them")
     args = parser.parse_args()
 
