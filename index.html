@@ -415,60 +415,6 @@
     }
     #scroll-top:hover { transform: translateY(-2px); }
 
-    /* ── SEARCH BAR ── */
-    .search-wrap {
-      position: relative;
-      margin-bottom: 1.5rem;
-    }
-    .search-icon {
-      position: absolute;
-      left: 0.85rem;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--ink2);
-      font-size: 1rem;
-      pointer-events: none;
-    }
-    #search-input {
-      width: 100%;
-      padding: 0.65rem 0.9rem 0.65rem 2.5rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg2);
-      color: var(--ink);
-      font-family: 'Lora', Georgia, serif;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    #search-input::placeholder { color: var(--ink2); opacity: 0.7; }
-    #search-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(139,58,42,0.12);
-    }
-    .search-clear {
-      position: absolute;
-      right: 0.75rem;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--ink2);
-      font-size: 1rem;
-      padding: 2px 4px;
-      display: none;
-      line-height: 1;
-    }
-    .search-clear:hover { color: var(--accent); }
-    .search-empty {
-      text-align: center;
-      padding: 2rem 1rem;
-      color: var(--ink2);
-      font-style: italic;
-      font-size: 0.95rem;
-    }
-
     @media (max-width: 480px) {
       #library, #reader { padding-left: 1rem; padding-right: 1rem; }
     }
@@ -503,7 +449,7 @@
     <div class="header-title" onclick="goHome()">📚 Books</div>
   </div>
   <div class="header-controls">
-    <button class="icon-btn" id="toc-btn" title="Table of contents" onclick="toggleToc()" style="display:none">章节</button>
+    <button class="icon-btn" id="toc-btn" title="Table of contents" onclick="toggleToc()" style="display:none">目次</button>
     <button class="icon-btn" id="star-btn" title="Star this book" onclick="toggleStar()" style="display:none">☆</button>
     <button class="icon-btn" id="dl-btn" title="Download file" onclick="downloadCurrent()" style="display:none">↓</button>
     <div style="position:relative">
@@ -522,7 +468,7 @@
 <div id="toc-overlay" onclick="closeToc()"></div>
 <div id="toc-drawer">
   <div class="toc-header">
-    <span class="toc-title">章节 · Contents</span>
+    <span class="toc-title">目次 · Contents</span>
     <button class="toc-close" onclick="closeToc()">✕</button>
   </div>
   <div class="toc-book-title" id="toc-book-title"></div>
@@ -585,11 +531,11 @@
   function getStarred() {
     try { return JSON.parse(localStorage.getItem('starred') || '[]'); } catch(e) { return []; }
   }
-  function isStarred(name) { return getStarred().includes(name); }
-  function setStarred(name, val) {
+  function isStarred(path) { return getStarred().includes(path); }
+  function setStarred(path, val) {
     let starred = getStarred();
-    if (val) { if (!starred.includes(name)) starred.push(name); }
-    else { starred = starred.filter(n => n !== name); }
+    if (val) { if (!starred.includes(path)) starred.push(path); }
+    else { starred = starred.filter(n => n !== path); }
     localStorage.setItem('starred', JSON.stringify(starred));
   }
   function toggleStar() {
@@ -609,7 +555,7 @@
   // ── Download current file ──────────────────────────────
   function downloadCurrent() {
     if (!currentFileKey) return;
-    const file = files.find(f => f.name === currentFileKey);
+    const file = files.find(f => f.path === currentFileKey);
     if (!file) return;
     const a = document.createElement('a');
     a.href = file.download_url;
@@ -706,7 +652,7 @@
     if (!lastKey) return;
     const saved = parseInt(localStorage.getItem('scroll_' + lastKey) || '0');
     if (saved < 200) return;
-    const idx = fileList.findIndex(f => f.name === lastKey);
+    const idx = fileList.findIndex(f => f.path === lastKey);
     if (idx === -1) return;
     resumeIndex = idx;
     resumeScroll = saved;
@@ -731,7 +677,7 @@
   }
 
   // Chapter regex: 第1章, 第２章, 第十章, etc. — optionally followed by a title on the same line
-  const CHAPTER_RE = /(第[0-9０-９一二三四五六七八九十百千万]+章)\s*(.*)/;
+  const CHAPTER_RE = /^(第[0-9０-９一二三四五六七八九十百千万]+章)\s*(.*)/;
 
   // ── Encoding detection ─────────────────────────────────
   // Try UTF-8 first; if it produces replacement chars (U+FFFD), fall back to GBK
@@ -779,93 +725,30 @@
     return { html, chapters: detected };
   }
 
-  // ── Search / filter ────────────────────────────────────
-  function filterBooks(query) {
-    const q = query.trim().toLowerCase();
-    const clearBtn = document.getElementById('search-clear');
-    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
-
-    const list = document.getElementById('book-list');
-    if (!list) return;
-
-    const cards = list.querySelectorAll('.book-card');
-    const labels = list.querySelectorAll('.section-label');
-    let visibleCount = 0;
-
-    cards.forEach(card => {
-      const name = (card.querySelector('.book-name')?.textContent || '').toLowerCase();
-      const meta = (card.querySelector('.book-meta')?.textContent || '').toLowerCase();
-      const match = !q || name.includes(q) || meta.includes(q);
-      card.style.display = match ? '' : 'none';
-      if (match) visibleCount++;
-    });
-
-    // Hide section labels if no visible cards follow them
-    labels.forEach(label => {
-      let next = label.nextElementSibling;
-      let hasVisible = false;
-      while (next && !next.classList.contains('section-label')) {
-        if (next.classList.contains('book-card') && next.style.display !== 'none') hasVisible = true;
-        next = next.nextElementSibling;
-      }
-      label.style.display = hasVisible ? '' : 'none';
-    });
-
-    // Show empty state
-    let emptyMsg = list.querySelector('.search-empty');
-    if (visibleCount === 0 && q) {
-      if (!emptyMsg) {
-        emptyMsg = document.createElement('div');
-        emptyMsg.className = 'search-empty';
-        list.appendChild(emptyMsg);
-      }
-      emptyMsg.textContent = `No titles matching "${query}"`;
-      emptyMsg.style.display = '';
-    } else if (emptyMsg) {
-      emptyMsg.style.display = 'none';
-    }
-  }
-
-  function clearSearch() {
-    const input = document.getElementById('search-input');
-    if (input) { input.value = ''; filterBooks(''); input.focus(); }
-  }
-
   // ── Library ────────────────────────────────────────────
-
-  // Fetch all .txt files from root and subdirectories.
-  // Root files are flagged as recommended=true; subdir files are not.
-  async function fetchAllFiles() {
-    const res = await fetch(API);
-    if (!res.ok) throw new Error('Could not reach GitHub API');
-    const data = await res.json();
-
-    const rootTxt = data
-      .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.txt'))
-      .map(f => ({ ...f, recommended: true }));
-
-    const dirs = data.filter(f => f.type === 'dir');
-
-    // Fetch each subdirectory in parallel
-    const subdirResults = await Promise.all(dirs.map(async dir => {
-      try {
-        const r = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(dir.path)}`);
-        if (!r.ok) return [];
-        const items = await r.json();
-        return items
-          .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.txt'))
-          .map(f => ({ ...f, recommended: false }));
-      } catch(e) { return []; }
-    }));
-
-    const subdirTxt = subdirResults.flat().sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-
-    return [...rootTxt, ...subdirTxt];
-  }
-
   async function loadLibrary() {
     try {
-      files = await fetchAllFiles();
+      // Use the git trees API (recursive) to get all files in one call
+      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/trees/HEAD?recursive=1`);
+      if (!res.ok) throw new Error('Could not reach GitHub API');
+      const data = await res.json();
+
+      // Build file objects for all .txt files, preserving their path
+      const allTxt = data.tree
+        .filter(item => item.type === 'blob' && item.path.toLowerCase().endsWith('.txt'))
+        .map(item => {
+          const parts = item.path.split('/');
+          const name  = parts[parts.length - 1];
+          const dir   = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+          return {
+            name,
+            path: item.path,
+            dir,
+            download_url: `https://raw.githubusercontent.com/${OWNER}/${REPO}/HEAD/${item.path}`
+          };
+        });
+
+      files = allTxt; // global files array now uses path-aware objects
 
       const lib = document.getElementById('library');
       if (!files.length) {
@@ -874,82 +757,74 @@
       }
 
       const starred = getStarred();
-      const starredFiles  = files.filter(f => starred.includes(f.name));
-      const recommendedFiles = files.filter(f => f.recommended && !starred.includes(f.name));
-      const otherFiles    = files.filter(f => !f.recommended && !starred.includes(f.name));
 
       function cardHtml(f, i) {
-        const scroll = parseInt(localStorage.getItem('scroll_'+f.name)||'0');
+        const scroll = parseInt(localStorage.getItem('scroll_' + f.path) || '0');
         const inProgress = scroll > 200;
-        const fStarred = starred.includes(f.name);
-        const badge = f.recommended && !fStarred
-          ? `<span style="font-size:0.7rem;background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;margin-left:0.4rem;vertical-align:middle;font-family:'Lora',serif;font-style:normal;letter-spacing:0.04em;">Pick</span>`
-          : '';
+        const fStarred = starred.includes(f.path);
         return `
           <div class="book-card fade-up" onclick="openBook(${i})">
             <div class="book-icon">${inProgress ? '🔖' : '📖'}</div>
             <div class="book-info">
-              <div class="book-name">${prettify(f.name)}${badge}</div>
-              <div class="book-meta">${f.path || f.name}</div>
+              <div class="book-name">${prettify(f.name)}</div>
               ${inProgress ? `<div class="book-progress">Reading in progress…</div>` : ''}
             </div>
-            <button class="star-btn-card" title="${fStarred?'Unstar':'Star'}"
-              onclick="event.stopPropagation(); toggleStarCard('${f.name}')">
+            <button class="star-btn-card" title="${fStarred ? 'Unstar' : 'Star'}"
+              onclick="event.stopPropagation(); toggleStarCard('${f.path}')">
               ${fStarred ? '★' : '☆'}
             </button>
             <div class="book-arrow">›</div>
           </div>`;
       }
 
-      const total = files.length;
+      const starredFiles = files.filter(f => starred.includes(f.path));
+
+      // Group non-starred files by directory
+      const groups = {};
+      for (const f of files) {
+        if (starred.includes(f.path)) continue;
+        const label = f.dir || '📂 Root';
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(f);
+      }
+
       let html = `
         <div class="library-heading fade-up">Your Library</div>
-        <div class="library-sub fade-up">${total} stor${total===1?'y':'ies'} · tap to read</div>
-        <div class="search-wrap fade-up">
-          <span class="search-icon">🔍</span>
-          <input type="search" id="search-input" placeholder="Search titles…" oninput="filterBooks(this.value)" autocomplete="off">
-          <button class="search-clear" id="search-clear" onclick="clearSearch()" title="Clear">✕</button>
-        </div>
-        <div class="book-list" id="book-list">`;
+        <div class="library-sub fade-up">${files.length} stor${files.length === 1 ? 'y' : 'ies'} · tap to read</div>
+        <div class="book-list">`;
 
       if (starredFiles.length) {
         html += `<div class="section-label">⭐ Favourites</div>`;
         html += starredFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
       }
 
-      if (recommendedFiles.length) {
-        html += `<div class="section-label">✦ Recommended</div>`;
-        html += recommendedFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
-      }
-
-      if (otherFiles.length) {
-        html += `<div class="section-label">All books</div>`;
-        html += otherFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+      for (const [label, group] of Object.entries(groups)) {
+        html += `<div class="section-label">📂 ${escHtml(label)}</div>`;
+        html += group.map(f => cardHtml(f, files.indexOf(f))).join('');
       }
 
       html += `</div>`;
-
       lib.innerHTML = html;
       checkResume(files);
+
     } catch(err) {
       document.getElementById('library').innerHTML =
         `<div class="status"><div class="status-icon">⚠️</div>Failed to load library.<br><small>${err.message}</small></div>`;
     }
   }
 
-  function toggleStarCard(name) {
-    setStarred(name, !isStarred(name));
+  function toggleStarCard(path) {
+    setStarred(path, !isStarred(path));
     loadLibrary();
   }
 
-  // ── Open book ──────────────────────────────────────────
   async function openBook(index, restoreScroll = null) {
     const file = files[index];
     const readerEl = document.getElementById('reader');
     const lib = document.getElementById('library');
 
-    currentFileKey = file.name;
-    localStorage.setItem('lastBook', file.name);
+    currentFileKey = file.path;
+    localStorage.setItem('lastBook', file.path);
     chapters = [];
 
     lib.style.display = 'none';
@@ -982,10 +857,9 @@
 
       buildToc(chapters, prettify(file.name));
 
-      // Restore scroll
       const target = restoreScroll !== null
         ? restoreScroll
-        : parseInt(localStorage.getItem('scroll_' + file.name) || '0');
+        : parseInt(localStorage.getItem('scroll_' + file.path) || '0');
 
       if (target > 0) {
         requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, target)));
@@ -1018,7 +892,5 @@
   window.addEventListener('popstate', goHome);
   loadLibrary();
 </script>
-<script data-goatcounter="https://onifujiba.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
