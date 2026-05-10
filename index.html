@@ -275,7 +275,27 @@
     }
     .book-card:active { transform: translateY(0); }
 
-    .book-icon { font-size: 1.6rem; flex-shrink: 0; opacity: 0.8; }
+    .book-cover {
+      width: 46px;
+      height: 58px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 2px 2px 6px var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .book-cover::after {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: rgba(0,0,0,0.18);
+      border-radius: 5px 0 0 5px;
+    }
     .book-info { flex: 1; min-width: 0; }
 
     .book-name {
@@ -725,6 +745,18 @@
     return { html, chapters: detected };
   }
 
+  // ── Cover emoji & accent color (hashed from filename) ──
+  const COVER_EMOJIS = ["📖","🏮","⚔️","🌸","🐉","🌙","🍂","🎋","🏯","🌺","📜","🗡️","🌊","🦋","🔮"];
+  const ACCENT_COLORS = ["#C8A96E","#8B3A3A","#4A6E8B","#5E7A4A","#7A4A7A","#8B6A3A","#3A6B8B","#8B4A3A","#4A7A6B","#6B4A8B"];
+
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+    return h & 0x7FFFFFFF;
+  }
+  function emojiForName(name)  { return COVER_EMOJIS[hashStr(name)  % COVER_EMOJIS.length]; }
+  function accentForName(name) { return ACCENT_COLORS[hashStr(name) % ACCENT_COLORS.length]; }
+
   // ── Library ────────────────────────────────────────────
   async function loadLibrary() {
     try {
@@ -762,9 +794,11 @@
         const scroll = parseInt(localStorage.getItem('scroll_' + f.path) || '0');
         const inProgress = scroll > 200;
         const fStarred = starred.includes(f.path);
+        const emoji  = emojiForName(f.name);
+        const accent = accentForName(f.name);
         return `
           <div class="book-card fade-up" onclick="openBook(${i})">
-            <div class="book-icon">${inProgress ? '🔖' : '📖'}</div>
+            <div class="book-cover" style="background:${accent}">${inProgress ? '🔖' : emoji}</div>
             <div class="book-info">
               <div class="book-name">${prettify(f.name)}</div>
               ${inProgress ? `<div class="book-progress">Reading in progress…</div>` : ''}
@@ -778,14 +812,14 @@
       }
 
       const starredFiles = files.filter(f => starred.includes(f.path));
+      const rootFiles    = files.filter(f => !f.dir && !starred.includes(f.path));
 
-      // Group non-starred files by directory
+      // Group non-starred, non-root files by directory
       const groups = {};
       for (const f of files) {
-        if (starred.includes(f.path)) continue;
-        const label = f.dir || '📂 Root';
-        if (!groups[label]) groups[label] = [];
-        groups[label].push(f);
+        if (starred.includes(f.path) || !f.dir) continue;
+        if (!groups[f.dir]) groups[f.dir] = [];
+        groups[f.dir].push(f);
       }
 
       let html = `
@@ -796,6 +830,11 @@
       if (starredFiles.length) {
         html += `<div class="section-label">⭐ Favourites</div>`;
         html += starredFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
+      }
+
+      if (rootFiles.length) {
+        html += `<div class="section-label">✨ Recommended</div>`;
+        html += rootFiles.map(f => cardHtml(f, files.indexOf(f))).join('');
       }
 
       for (const [label, group] of Object.entries(groups)) {
